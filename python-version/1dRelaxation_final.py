@@ -78,7 +78,7 @@ def W(x1,x2):
 Lx = 25;
 Lxnd = Lx/rm;
 
-nx = 1000;
+nx = 250;
 dx = Lxnd/nx
 
 xmin = -Lxnd/2; xmax = Lxnd/2;
@@ -97,7 +97,7 @@ kx1, kx2 = np.meshgrid(kx,kx,indexing='ij')
 #Laplacian in Fourier Space
 fftminlap = kx1**2 + kx2**2
 
-coff = 300/E_rec
+coff = 1000/E_rec
 
 Wcut = W(x1,x2)
 Wcut[np.isnan(Wcut)] = coff + 200
@@ -121,8 +121,8 @@ def P(f):
     return coff*f + np.real(np.fft.ifftn(np.multiply(fftminlap, np.fft.fftn(f))))
 
 #Iteration
-dt = 1.0
-s = 0.5
+dt = 1.2
+s = 0.1
 center = 1.0
 width = 0.6
 psi = np.exp((-(x1 + center)**2 - (x2 - center)**2)/(width**2))
@@ -158,12 +158,7 @@ eqs_error = np.array([])
 alpha_err = np.array([])
 while (erroreqs > 1e-5):
     i = i + 1
-
-    if (i != 1): 
-        #L0psislow = L0psin - L0psinold
-        L0psinold = L0psin 
-        psi = copy.deepcopy(psi_n)
-    
+    psi_old = psi
     
     potentialpart = np.multiply(Wcut,psi)
     L00psin = np.real(np.fft.ifftn(np.multiply(fftminlap, np.fft.fftn(psi)))) + potentialpart
@@ -172,7 +167,8 @@ while (erroreqs > 1e-5):
     
     E1 = num/den
     L0psin = L00psin - E1*psi
-    
+    if (i > 1):
+        L0psislow = L0psin - L0psinold
     if (i > 100):
         
         L0psislow = L0psin - L0psinold
@@ -186,17 +182,18 @@ while (erroreqs > 1e-5):
     else:
         subtracted_mode = np.zeros(psi.shape)
 
-    psi_n = psi - dt*Pinv(L0psin) + subtracted_mode*dt
+    psi = psi - dt*Pinv(L0psin) + subtracted_mode*dt
     #psi_n = (1/np.sqrt(2))*(psi_n + np.conj(psi_n).T)
-    psi_n = np.sqrt(2)*psi_n/np.sqrt(np.sum(psi_n**2)*dx*dx)
+    psi = np.sqrt(2)*psi/np.sqrt(np.sum(psi**2)*dx*dx)
     #print(np.sum(psi_n**2)*dx*dx)
     #Calculate normalisation
     #A = np.sqrt(2/(4 + 2*np.sum(np.multiply(np.conj(psi_n),psi_n.T))*dx*dx))
     #psi_n = A*(psi_n + psi_n.T)
     #print(np.sum(psi**2)*dx*dx)
-    psislow = psi_n - psi
+    psislow = psi - psi_old
+    L0psinold = L0psin
 
-    error = np.sqrt(np.sum(psi_n - psi)**2)
+    error = np.sqrt(np.sum(psi - psi_old)**2)
     rec_error = np.append(rec_error, error)
     plt.semilogy(rec_error,'r+')
     E2 = np.sum(np.multiply(psi,L00psin))/(np.sum(np.multiply(psi,psi)))
