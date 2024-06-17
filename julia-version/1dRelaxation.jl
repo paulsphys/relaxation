@@ -1,6 +1,7 @@
 import Elliptic
 import PyPlot
 import FFTW
+using LazyGrids: ndgrid, ndgrid_array
 
 rm = 2.9673;
 
@@ -93,22 +94,25 @@ end
 Lx = 25;
 Lxnd = Lx/rm;
 
-nx = 1000;
+nx = 250;
 dx = Lxnd/nx
 x = dx * (-nx/2:nx/2-1)
 x2 = x' .* ones(size(x))
 x1 = ones(size(x))' .* x
+#display(x1)
+#(x1,x2) = ndgrid(x,x)
+#display(x1t)
 
 #Fourier Space
 dkx = 2*pi/Lxnd;
 kx = dkx * (vcat(0:nx/2-1,-nx/2:-1))
 kx2 = kx' .* ones(size(kx))
 kx1 = ones(size(kx))' .* kx
-
+#(kx1, kx2) = ndgrid(kx,kx)
 #Laplacian in Fourier Space
 fftminlap = kx1.^2 + kx2.^2
 
-coff = 300/E_rec
+coff = 1000/E_rec
 Wcut = W(x1,x2)
 Wcut[Wcut .> coff] .= coff
 """
@@ -135,8 +139,8 @@ function P(f)
 end
 
 #Iteration
-dt = 1.0
-s = 0.5
+dt = 1.2
+s = 0.1
 center = 1.0
 width = 0.6
 psi = exp.((-(x1 .+ center).^2 .- (x2 .- center).^2)./(width^2))
@@ -147,7 +151,7 @@ psi = A*(psi + psi')
 #PyPlot.colorbar()
 #PyPlot.show()
 println(sum(psi.^2)*dx*dx)
-
+psi_old = zeros(size(psi))
 error = 1
 erroreqs = 1
 i = 0
@@ -170,12 +174,7 @@ alpha_err = []
 
 while erroreqs > 1e-5
     global i = i + 1
-
-    if i != 1
-        #L0psislow = L0psin - L0psinold
-        global L0psinold = L0psin
-        global psi = deepcopy(psi_n)
-    end
+    global psi_old .= psi
 
     potentialpart = Wcut .* psi
     L00psin = real(FFTW.ifft(fftminlap .* FFTW.fft(psi))) .+ potentialpart
@@ -185,6 +184,9 @@ while erroreqs > 1e-5
     
     E1 = num/den
     global L0psin = L00psin - E1*psi
+    if (i > 1)
+        L0psislow = L0psin - L0psinold
+    end
     if (i > 100)
         L0psislow = L0psin - L0psinold
         alpha = sum(psislow .* L0psislow) ./ sum(psislow .* P(psislow))
@@ -194,17 +196,18 @@ while erroreqs > 1e-5
     else
         subtracted_mode = zeros(size(psi))
     end
-    global psi_n = psi .- dt*Pinv(L0psin) .+ subtracted_mode*dt
+    global psi = psi .- dt*Pinv(L0psin) .+ subtracted_mode*dt
     #psi_n = (1/np.sqrt(2))*(psi_n + np.conj(psi_n).T)
-    psi_n = sqrt(2) * psi_n ./ sqrt(sum(psi_n.^2)*dx*dx)
+    global psi = sqrt(2) * psi ./ sqrt(sum(psi.^2)*dx*dx)
     #print(np.sum(psi_n**2)*dx*dx)
     #Calculate normalisation
     #A = np.sqrt(2/(4 + 2*np.sum(np.multiply(np.conj(psi_n),psi_n.T))*dx*dx))
     #psi_n = A*(psi_n + psi_n.T)
     #print(np.sum(psi**2)*dx*dx)
-    global psislow = psi_n .- psi
-
-    global error = real(sqrt(sum(psi_n .- psi).^2))
+    global psislow = psi .- psi_old
+    global L0psinold = L0psin
+    
+    global error = real(sqrt(sum(psi .- psi_old).^2))
     push!(rec_error, real(error))
     PyPlot.semilogy(rec_error,"r+")
     global E2 = sum(psi .* L00psin) / (sum(psi .* psi))
@@ -212,7 +215,7 @@ while erroreqs > 1e-5
     push!(eqs_error, real(erroreqs))
     PyPlot.semilogy(eqs_error,"b*")
 
-    if false
+    if false 
         PyPlot.show()
     end
 end
