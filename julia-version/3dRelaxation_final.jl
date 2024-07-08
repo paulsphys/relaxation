@@ -44,9 +44,16 @@ s = ArgParseSettings()
         arg_type = Int
         default = 12
     "--cutoff","-c"
-        help = "Potntial cutoff (in Kelvin)"
+        help = "Potential cutoff (in Kelvin)"
         arg_type = Float64
         default = 300
+    "--filename","-f"
+        help = "Filename ending"
+        arg_type = String
+        default = "-jl"
+    "--debug"
+        help = "A flag to activate the debug loop"
+        action = :store_true
 end
 
 parsed_args = parse_args(ARGS, s)
@@ -186,7 +193,7 @@ end
 
 #Iteration
 function Iterations(Wcut)
-    dt::Float64 = 1.2
+    dt::Float64 = 1.0
     s::Float64 = 0.1
     center::Float64 = 1.0
     width::Float64 = 0.6
@@ -265,7 +272,7 @@ function Iterations(Wcut)
         push!(eqs_error, real(erroreqs))
         PyPlot.semilogy(eqs_error,"b*")
 
-        if false
+        if parsed_args["debug"] && i % 100 == 0 
             PyPlot.show()
         end
     end
@@ -278,10 +285,13 @@ function main()
     Wcut[Wcut .> coff] .= coff
     println("Created potential")
     E2, i, error, psi = Iterations(Wcut)
+    print(sum(psi.^2)*dx*dx*dy*dy*dz)
     println(E2)
     println(i)
     println(error)
-    npzwrite("Final-wavefunction.npy",psi)
+    fend = parsed_args["filename"]
+    fname = "Final-wavefunction" * fend * ".npy"
+    npzwrite(fname,psi)
 end
 
 #PyPlot.show()
