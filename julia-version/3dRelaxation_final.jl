@@ -43,6 +43,10 @@ s = ArgParseSettings()
         help = "Number of points in the z-direction"
         arg_type = Int
         default = 12
+    "--dt"
+        help = "Timestep"
+        arg_type = Float64
+        default = 1.4
     "--cutoff","-c"
         help = "Potential cutoff (in Kelvin)"
         arg_type = Float64
@@ -193,7 +197,7 @@ end
 
 #Iteration
 function Iterations(Wcut)
-    dt::Float64 = 1.0
+    dt::Float64 = parsed_args["dt"]
     s::Float64 = 0.1
     center::Float64 = 1.0
     width::Float64 = 0.6
